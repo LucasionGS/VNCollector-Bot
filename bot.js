@@ -192,7 +192,7 @@ client.on("guildMemberAdd", async (member) => {
 
 client.on("message", (msg) => {
   if (!msg.author.bot) {
-    gainXP(msg.author.id, msg);
+    // gainXP(msg.author.id, msg);
     executeCommand(msg);
   }
 });
