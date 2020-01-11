@@ -1,5 +1,6 @@
 const fs = require("fs");
 const Discord = require("discord.js");
+const request = require("request");
 
 /**
  * Authentication settings
@@ -349,7 +350,7 @@ new Command(["help", "?"], (msg, cmd, args) => {
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i];
       
-      if (command.opts.adminOnly && !msg.member.hasPermission("ADMINISTRATOR")) {
+      if (command.opts.adminOnly && msg.channel.type != "dm" && !msg.member.hasPermission("ADMINISTRATOR")) {
         continue;
       }
       
@@ -430,7 +431,7 @@ new Command(["help", "?"], (msg, cmd, args) => {
 
 new Command(["nextlevel", "nl"], (msg) => {
   msg.channel.send(`${msg.author}, You are currently level ${userData[msg.author.id].lvl}.
-You have \`\`${userData[msg.author.id].xp} xp\`\` and you need \`\`${xpToNextLevel(msg.author.id, true)} xp\`\` until level ${userData[msg.author.id].lvl+1}.`);
+You have \`\`${userData[msg.author.id].xp}/${xpToNextLevel(msg.author.id)} xp\`\` and you need \`\`${xpToNextLevel(msg.author.id, true)} xp\`\` until level ${userData[msg.author.id].lvl+1}.`);
 }, {
   "helpText": "Displays your current level and how far you are from the next."
 });
@@ -444,11 +445,108 @@ new Command(["-saveUserData", "-sud"], (msg) => {
 });
 
 new Command("ranks", (msg) => {
+  var txt = "";
+  for (const key in ranks) {
+    if (ranks.hasOwnProperty(key)) {
+      const rank = ranks[key];
+      txt += `${rank.role} - Level ${rank.lvl}\n`;
+    }
+  }
   const em = new Embed();
-  em.
-  msg.channel.send();
+  em.setTitle("Available Ranks")
+  .setDescription(txt);
+  msg.channel.send(em);
 }, {
   "helpText": "Displays all of the available ranks you can gain from leveling up."
 });
 
+new Command("vn", (msg, cmd, args) => {
+  // Directly imported and edited from a different bot I created.
+  var url = "http://128.76.244.245/yuri/api/vndb.php";
+  msg.channel.startTyping();
+  if (isNaN(args[0])) {
+    request(url+"?function=getlist&s="+args.join(" "), { json: true }, (err, res, json) => {
+      if (err) { return console.log(err); }
+      if (json.instant) {
+        request(url+"?function=getnovel&s="+json.url, { json: true }, (err, res, json2) => {
+          if (err) { return console.log(err); }
+          msg.channel.send(EmbedVNDB(json2, true));
+        });
+      }
+      else {
+        msg.channel.send(EmbedVNDB(json, false));
+      }
+    });
+  }
+  else {
+    request(url+"?function=getnovel&s=https://vndb.org/v"+args[0], { json: true }, (err, res, json) => {
+      if (err) { return console.log(err); }
+      msg.channel.send(EmbedVNDB(json, true));
+    });
+  }
+  msg.channel.stopTyping();
+
+  function EmbedVNDB(json, instant) {
+    var em;
+    if (instant) {
+      em = new Discord.RichEmbed()
+      .setTitle(json.title)
+      .setDescription(json.desc.substring(0, 2048))
+      .setColor("#FF0000")
+      .setThumbnail(json.img)
+      .setURL(json.url);
+    }
+    else {
+      var allResults = "";
+      for (var i = 0; i < Math.min(json.length, 20); i++) {
+        var id = json[i].url.replace("https://vndb.org/v", "");
+        allResults += "\nID: " + id + " - **" + json[i].title + "**";
+      }
+
+      var jsonCount = json.length;
+      if (jsonCount > 20) {
+        jsonCount = jsonCount+"+";
+      }
+
+      em = new Discord.RichEmbed()
+      .setTitle("Found "+jsonCount+" results")
+      .setDescription(
+        "Please use the command again but with the ID of the visual novel.\n"+
+        "**"+Command.prefix+"vn {id}**\n"+allResults)
+      .setColor("#FF0000");
+    }
+    return em;
+  }
+}, {
+  "helpText": "Search for a visual novel on VNDB using a search term or an ID"
+});
+
 //#endregion Command Initialization
+
+
+// On exit
+process.stdin.resume();//so the program will not close instantly
+
+function exitHandler(options, exitCode) {
+    if (options.cleanup) {
+      fs.writeFileSync("users.json", JSON.stringify(userData));
+      // saveUserData();
+      console.log("Saved!");
+      
+    };
+    if (exitCode !== undefined || exitCode != 0) console.log(exitCode);
+    if (options.exit) process.exit();
+}
+
+//do something when app is closing
+process.on('exit', exitHandler.bind(null,{cleanup:true}));
+
+//catches ctrl+c event
+process.on('SIGINT', exitHandler.bind(null, {exit:true}));
+
+// catches "kill pid" (for example: nodemon restart)
+process.on('SIGUSR1', exitHandler.bind(null, {exit:true}));
+process.on('SIGUSR2', exitHandler.bind(null, {exit:true}));
+
+//catches uncaught exceptions
+process.on('uncaughtException', exitHandler.bind(null, {exit:true}));
