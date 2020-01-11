@@ -43,9 +43,16 @@ var ranks = [
   {
     "lvl": 5,
     "role": "Regular"
+  },
+  {
+    "lvl": 10,
+    "role": "Active"
+  },
+  {
+    "lvl": 20,
+    "role": "Enthusiast"
   }
 ];
-
 
 // Auto save data every 10 minutes
 setInterval(() => {
@@ -88,8 +95,7 @@ function gainXP(user_id, msg)
   }
 
   if (userData[user_id].lastMsgTime + 5000 > Date.now()) {
-    return; console.log("Too recent!");
-    
+    return;
   }
   userData[user_id].lastMsgTime = Date.now();
   userData[user_id].xp += 1;
@@ -97,7 +103,7 @@ function gainXP(user_id, msg)
   var xp = userData[user_id].xp;
   var lvl = userData[user_id].lvl;
   // Gain LEVEL
-  if (xp > xpToNextLevel(user_id)) {
+  if (xp >= xpToNextLevel(user_id)) {
     levelUp(user_id, msg);
   }
 }
@@ -110,14 +116,17 @@ function gainXP(user_id, msg)
 function levelUp(user_id, msg)
 {
   msg.channel.send(`${msg.author} just reached level ${++userData[user_id].lvl}`);
+  userData[msg.author.id].xp = 0;
   for (let i = 0; i < ranks.length; i++) {
     const rank = ranks[i];
     if (userData[user_id].lvl == rank.lvl) {
       var user = msg.guild.members.get(msg.author.id);
-      msg.channel.send(`${msg.author} also just reached a higher rank!`);
+      var _role = getRole(ranks[i-1].role);
+      msg.channel.send(`${msg.author} also just reached a higher rank and is now \`\`${_role.name}\`\`!`);
       try {
-        user.removeRole(getRole(ranks[i-1].role));
-      } catch { }
+        user.removeRole(_role);
+      }
+      catch (err) { console.log(`${user.displayName} had no rank prior to leveling up.`); }
       user.addRole(getRole(rank.role));
       break;
     }
@@ -130,7 +139,8 @@ function levelUp(user_id, msg)
  * @param {boolean} remaining If ``true``, returns only remaining xp until next level.
  */
 function xpToNextLevel(user_id, remaining = false) {
-  var full = (userData[user_id].lvl+5)*1.5;
+  var full = Math.ceil((userData[user_id].lvl+5)*5.5);
+  
   if (remaining) {
     return full - userData[user_id].xp;
   }
@@ -192,7 +202,7 @@ client.on("guildMemberAdd", async (member) => {
 
 client.on("message", (msg) => {
   if (!msg.author.bot) {
-    // gainXP(msg.author.id, msg);
+    gainXP(msg.author.id, msg);
     executeCommand(msg);
   }
 });
@@ -331,17 +341,28 @@ const default_opts = {
 
 //#region Command Initialization
 new Command(["help", "?"], (msg, cmd, args) => {
-  const user = msg.author
-  msg.channel.send("DM sent with commands.")
-
+  const user = msg.author;
   const em = new Embed();
-  if (typeof args[0] == "string") {
+  if (typeof args[0] != "string") {
+    msg.channel.send("DM sent with commands.")
     em.setTitle("Commands");
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i];
+      
+      if (command.opts.adminOnly && !msg.member.hasPermission("ADMINISTRATOR")) {
+        continue;
+      }
+      
+      var title = command.command;
+      if (command.multi) {
+        title = command.command.join(" | ");
+      }
+      if (command.opts.adminOnly) {
+        title += " (Administrator)";
+      }
       var fieldText = "";
       if (command.opts.syntax.length > 0) {
-        fieldText += "```\nSomething inside";
+        fieldText += "```\n";
         for (let i2 = 0; i2 < command.opts.syntax.length; i2++) {
           const _syntax = command.opts.syntax[i2];
           fieldText += _syntax+"\n";
@@ -349,30 +370,85 @@ new Command(["help", "?"], (msg, cmd, args) => {
         fieldText += "```\n";
       }
       fieldText += command.opts.helpText;
-      var title = command.command;
-      if (command.multi) {
-        title = command.command.join(" | ");
-      }
       em.addField("**"+title+"**", fieldText);
     }
     user.send(em);
   }
   else {
-    msg.channel.send(msg.author+", Individual help command is not yet supposed. Use just ``"+Command.prefix+"help`` to get the full list in DM.");
+    /**
+     * @type {Command}
+     */
+    var command;
+    for (let i = 0; i < commands.length; i++) {
+      if (commands[i].multi) {
+        for (let i2 = 0; i2 < commands[i].command.length; i2++) {
+          const _command = commands[i].command[i2];
+          if (_command.toLowerCase() == args[0].toLowerCase()) {
+            command = commands[i];
+            break;
+          }
+        }
+        if (command instanceof Command) {
+          break;
+        }
+      }
+      else {
+        if (commands[i].command.toLowerCase() == args[0].toLowerCase()) {
+          command = commands[i];
+          break;
+        }
+      }
+    }
+    if (command instanceof Command) {} else {
+      msg.channel.send(`${args[0]} is not a valid command!`);
+      return;
+    }
+    var title = command.command;
+    if (command.multi) {
+      title = command.command.join(" | ");
+    }
+    em.setTitle(title);
+    if (command.opts.syntax.length > 0) {
+      var fieldText = "```\n";
+      for (let i2 = 0; i2 < command.opts.syntax.length; i2++) {
+        const _syntax = command.opts.syntax[i2];
+        fieldText += _syntax+"\n";
+      }
+      fieldText += "```\n";
+      em.setDescription(fieldText);
+    }
+    em.addField("Description", command.opts.helpText);
+    msg.channel.send(em);
+    // msg.channel.send(msg.author+", Individual help command is not yet supposed. Use just ``"+Command.prefix+"help`` to get the full list in DM.");
   }
 }, {
-  "helpText": "Displays the help text for all or a specific command."
+  "helpText": "Displays the help text for all or a specific command.",
+  "syntax": [
+    "-help [command]"
+  ]
 });
 
 new Command(["nextlevel", "nl"], (msg) => {
-  msg.channel.send(`${msg.author}, You have \`\`${userData[msg.author.id].xp} xp\`\` and you need \`\`${10+Math.ceil(xpToNextLevel(msg.author.id, true))} xp\`\` until next level.`);
+  msg.channel.send(`${msg.author}, You are currently level ${userData[msg.author.id].lvl}.
+You have \`\`${userData[msg.author.id].xp} xp\`\` and you need \`\`${xpToNextLevel(msg.author.id, true)} xp\`\` until level ${userData[msg.author.id].lvl+1}.`);
+}, {
+  "helpText": "Displays your current level and how far you are from the next."
 });
 
 new Command(["-saveUserData", "-sud"], (msg) => {
   saveUserData();
   msg.channel.send("Saved user data!");
 }, {
-  "adminOnly": true
+  "adminOnly": true,
+  "helpText": "Force saves all the users' ``level`` and ``xp``"
+});
+
+new Command("ranks", (msg) => {
+  const em = new Embed();
+  em.
+  msg.channel.send();
+}, {
+  "helpText": "Displays all of the available ranks you can gain from leveling up."
 });
 
 //#endregion Command Initialization
