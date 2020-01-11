@@ -70,6 +70,12 @@ client.on("ready", async () => {
     console.error("Failed parsing users.json");
   }
 
+  client.user.setPresence({
+    "game": {
+      "name": "-help for list of commands."
+    }
+  });
+
   // Convert MainServer ID into object.
   MainServer = client.guilds.get(MainServer);
   
@@ -522,7 +528,6 @@ new Command("vn", (msg, cmd, args) => {
 });
 
 //#endregion Command Initialization
-
 
 // On exit
 process.stdin.resume();//so the program will not close instantly
