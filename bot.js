@@ -129,7 +129,7 @@ function levelUp(user_id, msg)
     if (userData[user_id].lvl == rank.lvl) {
       var user = msg.guild.members.get(msg.author.id);
       var _role = getRole(ranks[i-1].role);
-      msg.channel.send(`${msg.author} also just reached a higher rank and is now \`\`${_role.name}\`\`!`);
+      msg.channel.send(`${msg.author} also just reached a higher rank and is now \`\`${rank.name}\`\`!`);
       try {
         user.removeRole(_role);
       }
