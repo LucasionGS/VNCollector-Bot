@@ -52,7 +52,15 @@ var ranks = [
   {
     "lvl": 20,
     "role": "Enthusiast"
-  }
+  },
+  {
+    "lvl": 30,
+    "role": "Dedicated Reader"
+  },
+  {
+    "lvl": 100,
+    "role": "Nut Sack"
+  },
 ];
 
 // Auto save data every 10 minutes
@@ -158,6 +166,7 @@ function xpToNextLevel(user_id, remaining = false) {
 
 function saveUserData() {
   fs.writeFile("users.json", JSON.stringify(userData), () => { });
+  console.log("Saved at "+Date.now().toLocaleString());
 }
 
 /**
@@ -527,16 +536,24 @@ new Command("vn", (msg, cmd, args) => {
   "helpText": "Search for a visual novel on VNDB using a search term or an ID"
 });
 
+// new Command("top", (msg, cmd, args) => {
+//   for (const userid in userData) {
+//     if (userData.hasOwnProperty(userid)) {
+//       const data = userData[userid];
+//     }
+//   }
+// });
+
 //#endregion Command Initialization
 
-// On exit
+//#region On exit
 process.stdin.resume();//so the program will not close instantly
 
 function exitHandler(options, exitCode) {
     if (options.cleanup) {
       fs.writeFileSync("users.json", JSON.stringify(userData));
       // saveUserData();
-      console.log("Saved!");
+      console.log("Saved on exit.");
       
     };
     if (exitCode !== undefined || exitCode != 0) console.log(exitCode);
@@ -555,3 +572,5 @@ process.on('SIGUSR2', exitHandler.bind(null, {exit:true}));
 
 //catches uncaught exceptions
 process.on('uncaughtException', exitHandler.bind(null, {exit:true}));
+
+//#endregion
