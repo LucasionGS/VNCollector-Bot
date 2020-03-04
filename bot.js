@@ -536,13 +536,67 @@ new Command("vn", (msg, cmd, args) => {
   "helpText": "Search for a visual novel on VNDB using a search term or an ID"
 });
 
-// new Command("top", (msg, cmd, args) => {
-//   for (const userid in userData) {
-//     if (userData.hasOwnProperty(userid)) {
-//       const data = userData[userid];
-//     }
-//   }
-// });
+new Command("top", (msg, cmd, args) => {
+  /**
+   * @type {{id: string, lvl: number, xp: number, lastMsgTime: number}[]}
+   */
+  var userList = [];
+  var list = [];
+  var desc = "";
+  for (const key in userData) {
+    if (userData.hasOwnProperty(key)) {
+      userList.push({
+        id: userData[key].id,
+        lvl: userData[key].lvl,
+        xp: userData[key].xp,
+      });
+    }
+  }
+  
+  for (let countTen = 0; countTen < Math.min(10, userList.length); countTen++) {
+    var topUser = {
+      id: "",
+      lvl: 0,
+      xp: 0,
+      lastMsgTime: 0
+    };
+    for (let i = 0; i < userList.length; i++) {
+      const user = userList[i];
+      // user.lvl = +user.lvl.toFixed(2);
+      
+      if (topUser.lvl < user.lvl) {
+        topUser = user;
+      }
+    }
+
+    for (let i = 0; i < userList.length; i++) {
+      const _t = userList[i];
+      
+      if (_t == topUser) {
+        var topData = userList.splice(i, 1)[0];
+        list.push(topData);
+
+        var nextXP = xpToNextLevel(topData.id);
+        // topData.lvl += Math.round((topData.xp/nextXP)*100) / 100;
+        var pct = Math.round((topData.xp/nextXP)*100);
+        
+        if (desc == "") {
+          desc += "__#"+list.length.toString()+" **"+ MainServer.members.get(topData.id).user.username + "** - Level "+topData.lvl + " *("+pct+"%)*" + "__\n";
+        }
+        else {
+          desc += "#"+list.length.toString()+" **"+ MainServer.members.get(topData.id).user.username + "** - Level "+topData.lvl + " *("+pct+"%)*" + "\n";
+        }
+      }
+    }
+  }
+
+  var em = new Embed()
+  .setColor("#00FFFF")
+  .setTitle("Top user levels")
+  .setDescription(desc);
+  msg.channel.send(em);
+
+});
 
 //#endregion Command Initialization
 
